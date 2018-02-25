@@ -19,8 +19,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.example.gman.myapplication.R;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,31 +61,28 @@ public class BookListActivity extends AppCompatActivity implements LoaderManager
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_book_list);
 
+        // Find a reference to the {@link ListView} in the layout
+        final ListView bookInfoListView = findViewById(R.id.list);
+        mEmptyStateTextView = findViewById(R.id.empty_view);
 
-        if(savedInstanceState == null || !savedInstanceState.containsKey("bookList")) {
-            Log.i(LOG_TAG, "create a new");
-            books = new ArrayList<bookInfo>();
-//            books = new ArrayList(Arrays.asList(books));
+        if(savedInstanceState != null && savedInstanceState.containsKey("bookList")) {
+            Log.i(LOG_TAG, "Restored from bundle");
+            books = savedInstanceState.getParcelableArrayList("bookList");
+            bookInfoListView.invalidate();
         } else {
-            Log.i(LOG_TAG, "return old");
-            // books = savedInstanceState.getParcelableArrayList("bookList");
+            Log.i(LOG_TAG, "Created new");
+            books = new ArrayList<bookInfo>();
+            // Only on initial state do we want a an empty view
+            bookInfoListView.setEmptyView(mEmptyStateTextView);
         }
 
         //Set progress spinner visible in bookInfo_activity.xml
         mProgress = findViewById(R.id.loading_spinner);
         mProgress.setVisibility(View.VISIBLE);
 
-
-        // Find a reference to the {@link ListView} in the layout
-        final ListView bookInfoListView = findViewById(R.id.list);
-
-
-        //Find reference to set layout to empty state Textview
-        mEmptyStateTextView = findViewById(R.id.empty_view);
-        bookInfoListView.setEmptyView(mEmptyStateTextView);
-
-        // Create a new adapter that takes an empty list of bookInfos as input
-        mAdapter = new BookListAdapter(this, new ArrayList<bookInfo>());
+        // Create a new adapter that uses the books array for content
+        mAdapter = new BookListAdapter(this, books);
+        bookInfoListView.setAdapter(mAdapter);
 
         // Set the adapter on the {@link ListView}
         // so the list can be populated in the user interface
@@ -101,8 +96,6 @@ public class BookListActivity extends AppCompatActivity implements LoaderManager
         searchButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
-                mAdapter.clear();
 
                 //* get user input and set it ready for url
                 String keyWord = searchTextView.getText().toString().trim();
@@ -118,8 +111,8 @@ public class BookListActivity extends AppCompatActivity implements LoaderManager
                 InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
                 imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
 
-                // Create a new adapter that takes an empty list of bookInfos as input
-                mAdapter = new BookListAdapter(BookListActivity.this, new ArrayList<bookInfo>());
+                // Clear the adapter so old results don't showt
+                //mAdapter.clear();
 
                 // Set the adapter on the {@link ListView}
                 // so the list can be populated in the user interface
@@ -157,8 +150,8 @@ public class BookListActivity extends AppCompatActivity implements LoaderManager
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
-        outState.putParcelableArrayList("bookList", books);
         super.onSaveInstanceState(outState);
+        outState.putParcelableArrayList("bookList", books);
     }
 
     @Override
@@ -167,6 +160,19 @@ public class BookListActivity extends AppCompatActivity implements LoaderManager
         books = savedState.getParcelableArrayList("bookList");
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.i(LOG_TAG, "Got onStop state");
+
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        Log.i(LOG_TAG, "Got onDestroy state");
+
+    }
 
     @Override
     public Loader<List<bookInfo>> onCreateLoader(int i, Bundle bundle) {
@@ -175,6 +181,7 @@ public class BookListActivity extends AppCompatActivity implements LoaderManager
 
     @Override
     public void onLoadFinished(Loader<List<bookInfo>> loader, List<bookInfo> bookInfos) {
+        Log.i(LOG_TAG, "In onLoadFinished");
 
         //Turn off spinner
         mProgress.setVisibility(View.GONE);
@@ -189,12 +196,11 @@ public class BookListActivity extends AppCompatActivity implements LoaderManager
         // data set. This will trigger the ListView to update.
         if (bookInfos != null && !bookInfos.isEmpty()) {
             // Avoid NullPointerException
-            books = new ArrayList<>();
-            // Update our storage List object
-            books.addAll(bookInfos);
-            // Update our display List object
-            mAdapter.addAll(bookInfos);
+            books = (ArrayList<bookInfo>) bookInfos;
+            Log.i(LOG_TAG, "In onLoadFinished:: updated mAdapter");
         }
+        mAdapter.addAll(books);
+
     }
 
     @Override
